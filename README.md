@@ -35,3 +35,21 @@ O teste validou a hipótese matemática, reduzindo drasticamente o prejuízo esp
 * **O Problema:** Uma tentativa inicial de apostar em Empates e Visitantes resultou em perdas severas (ROI de -14%). O diagnóstico revelou a fraqueza da Distribuição de Poisson em modelar empates no futebol real (times recuam quando o jogo está empatado no fim).
 * **O Rollback (Versão Otimizada):** O modelo foi restrito a buscar valor apenas na **Vitória do Mandante** com margem de 10%. 
 * **Resultado Final:** O robô reduziu o número de entradas (apenas 103 apostas filtradas), entregando um ROI de **-2.91%**. Apesar do leve prejuízo nominal, o modelo provou capacidade de cortar grande parte da vantagem matemática da casa de apostas, servindo como uma base sólida para futuras adições de variáveis (como desfalques ou *Expected Goals* baseados em finalizações).
+
+## Fase 3: Machine Learning (Random Forest) e a Lição do GIGO
+
+Para superar as limitações estatísticas do modelo de Poisson (especialmente a dificuldade em prever empates), evoluímos o projeto para o campo da Inteligência Artificial, implementando um modelo de **Random Forest Classifier**.
+
+### Engenharia de Variáveis (Feature Engineering) e Treinamento
+* **As Pistas (Features):** Construímos um script iterativo para calcular a média móvel dos últimos 5 jogos de cada equipe (Gols Feitos e Sofridos), garantindo que a IA olhasse apenas para a "forma recente" e sem vazar dados do futuro.
+* **O Alvo (Target):** Convertemos os resultados do mercado 1x2 (H, D, A) em classes numéricas (2, 1, 0).
+* **Treino e Teste:** Dividimos a base de dados temporalmente (`shuffle=False`). A IA estudou os primeiros 80% do campeonato e foi testada nos 20% finais.
+* **Odds Justas:** Utilizamos o método `.predict_proba()` para extrair a probabilidade exata calculada pela árvore de decisão para cada cenário, convertendo-as em "Odds da IA".
+
+### Resultados e a Lição de Engenharia de Dados
+O Backtest do modelo de Machine Learning (buscando um Edge de 10% em todos os mercados) resultou em um **ROI de -16.89%** na reta final da temporada.
+
+**Por que a IA falhou em bater o mercado?**
+A resposta está no princípio fundamental da Ciência de Dados: **GIGO (Garbage In, Garbage Out)**. 
+Embora o Random Forest seja um algoritmo de ponta, nós o alimentamos apenas com "Gols". No futebol, o gol é um evento de alta variância. Um time pode dominar uma partida (20 chutes a gol) e empatar em 0x0. Para a IA atual, o desempenho foi ruim (0 gols). 
+Isso prova metodologicamente que **nenhum modelo matemático avançado sobrevive à falta de profundidade de dados**. 
