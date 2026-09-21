@@ -18,7 +18,7 @@ Desenvolvi um algoritmo em Python que:
 * SciPy (Cálculo de probabilidade com Poisson)
 
 ## Resultado Prático
-No *backtest* de cenários como Manchester City x Arsenal, o modelo dinâmico ajustou a probabilidade de vitória do mandante, identificando um xG menor do que a média estática sugeria devido à forte defesa recente do visitante. Isso provou matematicamente o "Valor Negativo" de apostar no favorito naquela rodada específica.
+No *backtest* de cenários como Manchester City x Arsenal, o modelo dinâmico ajustou a probabilidade de vitória do mandante, identificando um xG menor do que a média estática sugeria devido à forte defesa recente do visitante. No exemplo Manchester City × Arsenal, o modelo dinâmico indicou um xG do mandante menor do que a média estática sugeria. Vale registrar que esta primeira célula é uma demonstração do motor de cálculo, não uma previsão: ela usa a EMA sobre toda a temporada, incluindo jogos posteriores ao confronto. O backtest da Fase 2 é a versão temporalmente honesta.
 
 ## Fase 2: Backtesting e Fator de Segurança (Edge)
 
@@ -34,7 +34,7 @@ Para garantir um teste cego e evitar o *Data Leakage* (vazamento de dados do fut
 O teste validou a hipótese matemática, reduzindo drasticamente o prejuízo esperado pelas taxas das casas de apostas (o *Juice*).
 * **O Problema:** Uma tentativa inicial de apostar em Empates e Visitantes resultou em perdas severas (ROI de -14%). O diagnóstico revelou a fraqueza da Distribuição de Poisson em modelar empates no futebol real (times recuam quando o jogo está empatado no fim).
 * **O Rollback (Versão Otimizada):** O modelo foi restrito a buscar valor apenas na **Vitória do Mandante** com margem de 10%. 
-* **Resultado Final:** O robô reduziu o número de entradas (apenas 103 apostas filtradas), entregando um ROI de **-2.91%**. Apesar do leve prejuízo nominal, o modelo provou capacidade de cortar grande parte da vantagem matemática da casa de apostas, servindo como uma base sólida para futuras adições de variáveis (como desfalques ou *Expected Goals* baseados em finalizações).
+* **Resultado Final:** O robô reduziu o número de entradas (apenas 103 apostas filtradas), entregando um ROI de **-2.91%**. Apesar do prejuízo nominal, o ROI de −2,91% ficou acima do retorno esperado de apostas aleatórias contra a margem da casa, que no mercado 1X2 costuma ficar entre −5% e −7%. Com 103 entradas, porém, o erro padrão do ROI é de cerca de 12 pontos percentuais, a diferença de 2 a 4 pontos não é estatisticamente significativa. Serve como indício de que o filtro de valor tem efeito, não como comprovação.
 
 ## Fase 3: Machine Learning (Random Forest) e a Lição do GIGO
 
@@ -53,3 +53,15 @@ O Backtest do modelo de Machine Learning (buscando um Edge de 10% em todos os me
 A resposta está no princípio fundamental da Ciência de Dados: **GIGO (Garbage In, Garbage Out)**. 
 Embora o Random Forest seja um algoritmo de ponta, nós o alimentamos apenas com "Gols". No futebol, o gol é um evento de alta variância. Um time pode dominar uma partida (20 chutes a gol) e empatar em 0x0. Para a IA atual, o desempenho foi ruim (0 gols). 
 Isso prova metodologicamente que **nenhum modelo matemático avançado sobrevive à falta de profundidade de dados**. 
+
+## Limitações Metodológicas Conhecidas Revisitando este projeto, identifiquei os seguintes problemas. Estão documentados aqui porque afetam diretamente a interpretação dos resultados acima. 
+
+**1. Tamanho de amostra insuficiente para qualquer conclusão.** O backtest de Poisson gerou 103 entradas com ROI de −2,91%; o de Machine Learning, 61 entradas com −16,89%. Calculando o erro padrão do ROI a partir da taxa de acerto e da odd média dos acertos, os intervalos de confiança de 95% ficam entre −27% e +22% no primeiro caso, e entre −53% e +20% no segundo. Ambos contêm o zero com folga: nenhum dos dois resultados é distinguível de acaso. 
+
+**2. A Distribuição de Poisson assume independência entre os gols das equipes.** A matriz multiplica `P(i gols do mandante)` por `P(j gols do visitante)` como eventos independentes. No futebol real existe correlação negativa em placares baixos, times recuam quando o jogo está empatado, e é exatamente por isso que o modelo falhou em prever empates. O tratamento padrão para isso é a correção de Dixon-Coles (1997), que ajusta as probabilidades dos placares 0-0, 1-0, 0-1 e 1-1 sobre o modelo de Poisson independente de Maher (1982). 
+
+**3. A matriz de placares é truncada em 5 gols e as probabilidades não são renormalizadas.** Cerca de 1% da massa de probabilidade fica de fora, o que enviesa levemente todas as odds justas calculadas. A correção é dividir cada probabilidade pela soma total da matriz. 
+
+**4. `predict_proba()` do Random Forest não produz probabilidade calibrada.** Converter essa saída diretamente em odd justa é incorreto: Random Forest é conhecidamente mal calibrado, tipicamente superconfiante. O tratamento seria Platt scaling ou regressão isotônica, implementado no projeto seguinte via `CalibratedClassifierCV`. 
+
+**5. Nenhuma métrica de qualidade do modelo foi calculada.** `accuracy_score` é importado e nunca utilizado. Além disso, acurácia é a métrica errada para este problema: o que importa em aposta é ter probabilidade melhor calibrada que o mercado, não acertar mais jogos. As métricas corretas seriam Brier score ou log-loss.
